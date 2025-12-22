@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gambling Simulation: D'Alembert Strategy</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        #stats { margin-bottom: 20px; font-weight: bold; color: #333; }
+        canvas { width: 100% !important; height: 500px !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Betting Simulation Results</h2>
+    <div id="stats">Running simulation...</div>
+    <canvas id="bankrollChart"></canvas>
+</div>
+
+<script>
+    function runSimulation() {
+        // --- Configuration ---
+        let bankroll = 1000;
+        let currentBet = 1;
+        const houseEdge = 0.01; // 1%
+        const winProbability = 0.5 - (houseEdge / 2); // 49.5% chance to win
+        const totalHands = 1000000;
+        const recordInterval = 100;
+
+        const history = [];
+        const labels = [];
+
+        let handsPlayed = 0;
+
+        // --- Simulation Loop ---
+        for (let i = 1; i <= totalHands; i++) {
+            handsPlayed = i;
+
+            // Determine Outcome
+            const win = Math.random() < winProbability;
+
+            if (win) {
+                bankroll += currentBet;
+                // Decrease bet by 1, minimum $1
+                currentBet = Math.max(1, currentBet - 1);
+            } else {
+                bankroll -= currentBet;
+                // Increase bet by 1
+                currentBet += 1;
+            }
+
+            // Record data point every 100 hands
+            if (i % recordInterval === 0) {
+                history.push(bankroll);
+                labels.push(i);
+            }
+
+            // Check if Bankrupt
+            if (bankroll <= 0) {
+                bankroll = 0;
+                history.push(0);
+                labels.push(i);
+                break;
+            }
+        }
+
+        updateStats(bankroll, handsPlayed);
+        renderChart(labels, history);
+    }
+
+    function updateStats(finalBankroll, hands) {
+        const statsDiv = document.getElementById('stats');
+        statsDiv.innerHTML = `
+            Hands Played: ${hands.toLocaleString()} <br>
+            Final Bankroll: $${finalBankroll.toFixed(2)} 
+            ${finalBankroll <= 0 ? '<span style="color:red;">(Bust!)</span>' : ''}
+        `;
+    }
+
+    function renderChart(labels, data) {
+        const ctx = document.getElementById('bankrollChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Bankroll ($)',
+                    data: data,
+                    borderColor: '#2563eb',
+                    borderWidth: 1.5,
+                    fill: false,
+                    pointRadius: 0 // Improves performance for large datasets
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: 'Hands Played' } },
+                    y: { title: { display: true, text: 'Balance ($)' } }
+                },
+                plugins: {
+                    legend: { display: true }
+                }
+            }
+        });
+    }
+
+    // Initialize
+    window.onload = runSimulation;
+</script>
+
+</body>
+</html>
