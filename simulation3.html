@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gambling Simulation</title>
+    <title>Gambling Strategy Simulator</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f0f2f5; }
         .container { width: 95%; max-width: 1100px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        .controls { display: flex; gap: 20px; align-items: flex-end; margin-bottom: 25px; flex-wrap: wrap; }
+        .controls { display: flex; gap: 20px; align-items: flex-end; margin-bottom: 25px; flex-wrap: wrap; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
-        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100px; font-size: 16px; }
-        .stats { margin-bottom: 20px; display: flex; gap: 30px; font-weight: 600; color: #444; border-top: 1px solid #eee; pt: 15px; padding-top: 15px; }
-        canvas { margin-top: 10px; max-height: 500px; }
-        button { padding: 10px 25px; font-size: 16px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 4px; transition: background 0.2s; }
-        button:hover { background-color: #218838; }
-        .label-text { font-size: 0.9rem; color: #666; font-weight: bold; }
+        label { font-size: 0.85rem; color: #555; font-weight: bold; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 120px; font-size: 16px; }
+        .stats { margin-bottom: 20px; display: flex; gap: 30px; font-weight: 600; color: #444; border-top: 1px solid #eee; padding-top: 15px; }
+        canvas { margin-top: 10px; max-height: 500px; width: 100% !important; }
+        button { padding: 10px 25px; font-size: 16px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; transition: background 0.2s; height: 42px; }
+        button:hover { background-color: #0056b3; }
+        #status { min-width: 150px; }
     </style>
 </head>
 <body>
@@ -23,7 +24,11 @@
 <div class="container">
     <div class="controls">
         <div class="input-group">
-            <span class="label-text">Max Bet ($)</span>
+            <label for="houseEdgeInput">House Edge (%)</label>
+            <input type="number" id="houseEdgeInput" value="1.0" step="0.1">
+        </div>
+        <div class="input-group">
+            <label for="maxBetInput">Max Bet ($)</label>
             <input type="number" id="maxBetInput" value="10" min="1">
         </div>
         <button onclick="runSimulation()">Run Simulation</button>
@@ -42,63 +47,67 @@
     let chart;
 
     function runSimulation() {
-        // --- Configuration ---
+        // --- Setup ---
         const STARTING_BANKROLL = 1000;
-        const WIN_CHANCE = 0.495; // 1% House Edge (Player wins 49.5% of the time)
         const TOTAL_HANDS = 1000000;
         const DATA_INTERVAL = 100;
         const MIN_BET = 1;
         
-        // Get user input for Max Bet
-        const MAX_BET = parseFloat(document.getElementById('maxBetInput').value) || 10;
+        // Get user inputs
+        const maxBet = parseFloat(document.getElementById('maxBetInput').value) || 10;
+        const houseEdge = parseFloat(document.getElementById('houseEdgeInput').value) || 0;
+        
+        // Probability Calculation
+        // A 0% edge is 50/50. A 1% edge means player wins 49.5% (50 - (1/2))
+        const winChance = (50 - (houseEdge / 2)) / 100;
 
         let bankroll = STARTING_BANKROLL;
         let currentBet = 1;
         let history = [STARTING_BANKROLL];
         let labels = [0];
-        let totalHandsPlayed = 0;
+        let handsPlayed = 0;
 
-        // --- Simulation Loop ---
+        // --- Core Loop ---
         for (let i = 1; i <= TOTAL_HANDS; i++) {
-            // Check if player can afford the bet
             if (bankroll < currentBet) {
-                currentBet = bankroll;
-				bankroll = 0;
+                handsPlayed = i - 1;
+                break;
             }
 
-            // Execute Bet
-            const isWin = Math.random() < WIN_CHANCE;
-            if (isWin) {
+            if (Math.random() < winChance) {
+                // Win logic
                 bankroll += currentBet;
                 currentBet = Math.max(MIN_BET, currentBet - 1);
             } else {
+                // Loss logic
                 bankroll -= currentBet;
-                currentBet = Math.min(MAX_BET, currentBet + 1);
+                currentBet = Math.min(maxBet, currentBet + 1);
             }
 
-            // Capture data for graph
+            // Data sampling for performance
             if (i % DATA_INTERVAL === 0) {
                 history.push(Number(bankroll.toFixed(2)));
                 labels.push(i);
             }
 
-            totalHandsPlayed = i;
-            if (bankroll <= 0) break;
+            handsPlayed = i;
+            if (bankroll <= 0) {
+                bankroll = 0;
+                break;
+            }
         }
 
-        updateChart(labels, history, totalHandsPlayed, bankroll);
+        updateUI(labels, history, handsPlayed, bankroll);
     }
 
-    function updateChart(labels, data, hands, finalMoney) {
-        // Update Stats UI
+    function updateUI(labels, data, hands, finalMoney) {
         const statusEl = document.getElementById('status');
         statusEl.innerText = finalMoney <= 0 ? "Status: BUST" : "Status: FINISHED";
         statusEl.style.color = finalMoney <= 0 ? "#dc3545" : "#28a745";
         
         document.getElementById('finalHands').innerText = `Hands: ${hands.toLocaleString()}`;
-        document.getElementById('finalBankroll').innerText = `Bankroll: $${Math.max(0, finalMoney).toLocaleString(undefined, {minimumDigits: 2})}`;
+        document.getElementById('finalBankroll').innerText = `Bankroll: $${finalMoney.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
-        // Update Chart
         if (chart) chart.destroy();
 
         const ctx = document.getElementById('bankrollChart').getContext('2d');
@@ -107,16 +116,13 @@
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Player Bankroll',
+                    label: 'Bankroll',
                     data: data,
                     borderColor: '#007bff',
-                    borderWidth: 1.5,
-                    fill: {
-                        target: 'origin',
-                        above: 'rgba(0, 123, 255, 0.05)', 
-                    },
+                    borderWidth: 1,
+                    fill: false,
                     pointRadius: 0,
-                    tension: 0.1
+                    tension: 0
                 }]
             },
             options: {
@@ -124,14 +130,8 @@
                 maintainAspectRatio: false,
                 animation: false,
                 scales: {
-                    x: { 
-                        title: { display: true, text: 'Number of Hands' },
-                        grid: { display: false }
-                    },
-                    y: { 
-                        title: { display: true, text: 'USD ($)' },
-                        beginAtZero: true
-                    }
+                    x: { title: { display: true, text: 'Hands Played' } },
+                    y: { title: { display: true, text: 'Balance ($)' } }
                 },
                 plugins: {
                     legend: { display: false }
