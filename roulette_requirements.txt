@@ -1,0 +1,12 @@
+Create a simulation of a roulette strategy in the same vein as the current three simulation.html files.
+
+Start with a $1000 bankroll baseline.
+
+Strategy:
+1. Always bet on 7 of the 36 numbers. (not 0 or 00)
+2. Start betting $1 per number. If you lose 5 spins in a row, up the bet to $2 per number. If you
+lose another 5 spins in a row, up the bet to $3 and so on.
+3. If you win a spin, ratchet back the bet escalation 5 spins. For example, if you were on the 4th spin of
+betting $3, go back to being on the 4th spin of betting $2.
+4. If you any point you push above your baseline bankroll, immediately reset the escalation
+to the first spin at $1/number. Every high water mark becomes a new baseline.
