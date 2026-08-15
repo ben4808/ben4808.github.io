@@ -28,6 +28,9 @@ Keep these requirements in the comments.
         .strategy { color: #666; font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px; }
         .controls { display: flex; gap: 20px; align-items: flex-end; margin-bottom: 25px; flex-wrap: wrap; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group.checkbox { justify-content: flex-end; }
+        .input-group.checkbox label { display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; }
+        .input-group.checkbox input { width: auto; }
         label { font-size: 0.85rem; color: #555; font-weight: bold; }
         input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 120px; font-size: 16px; }
         .stats { margin-bottom: 20px; display: flex; gap: 30px; font-weight: 600; color: #444; border-top: 1px solid #eee; padding-top: 15px; flex-wrap: wrap; }
@@ -60,6 +63,12 @@ Keep these requirements in the comments.
         <div class="input-group">
             <label for="maxBetInput">Max Bet / Placement ($)</label>
             <input type="number" id="maxBetInput" value="100" min="1" step="1">
+        </div>
+        <div class="input-group checkbox">
+            <label for="stopEarlyInput">
+                <input type="checkbox" id="stopEarlyInput">
+                Stop on first profit or 17/20
+            </label>
         </div>
         <button onclick="runSimulation()">Run Simulation</button>
     </div>
@@ -117,6 +126,7 @@ Keep these requirements in the comments.
         const startingBankroll = Math.max(1, parseFloat(document.getElementById('bankrollInput').value) || 1000);
         const totalSpins = parseInt(document.getElementById('spinsInput').value, 10) || 1000000;
         const maxBet = Math.max(1, parseFloat(document.getElementById('maxBetInput').value) || 100);
+        const stopEarly = document.getElementById('stopEarlyInput').checked;
 
         let bankroll = startingBankroll;
         let baseline = startingBankroll;
@@ -164,6 +174,10 @@ Keep these requirements in the comments.
             if (i % DATA_INTERVAL === 0) {
                 history.push(Number(bankroll.toFixed(2)));
                 labels.push(i);
+            }
+
+            if (stopEarly && (hitSeventeenOrTwenty || bankroll > startingBankroll)) {
+                break;
             }
         }
 
