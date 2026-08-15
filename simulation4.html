@@ -153,8 +153,6 @@ Keep these requirements in the comments.
             spinsPlayed = i;
             if (bankroll <= 0) {
                 bankroll = 0;
-                history.push(0);
-                labels.push(Math.ceil(i / DATA_INTERVAL) * DATA_INTERVAL);
                 break;
             }
 
@@ -162,6 +160,11 @@ Keep these requirements in the comments.
                 history.push(Number(bankroll.toFixed(2)));
                 labels.push(i);
             }
+        }
+
+        if (labels[labels.length - 1] !== spinsPlayed) {
+            history.push(Number(bankroll.toFixed(2)));
+            labels.push(spinsPlayed);
         }
 
         updateUI(labels, history, spinsPlayed, bankroll, peak, peakBet, hits, resetHits);
