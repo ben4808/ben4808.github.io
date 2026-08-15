@@ -1,3 +1,19 @@
+<!--
+1. Always bet 5 equal bets on the following placements:
+  - straddling 14, 15, 17, 18
+  - straddling 20, 21, 23, 24
+  - straddling 13, 14, 16, 17
+  - straddling 19, 20, 22, 23
+  - straddling 17, 20
+  
+2. Start betting $1 per bet, but raise $1 for every $30 you are below your baseline. For example, at $80 below the baseline, the bet is $3 ($15 total per spin).
+3. Any time you end a spin with a bankroll above your baseline, reset the baseline to the new high water mark.
+4. Any time you hit a 17 or a 20, reset the baseline to whatever the bankroll is after that spin, even if it's lower than the previous baseline.
+
+Start with a $1000 bankroll.
+Keep these requirements in the comments.
+-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,11 +40,12 @@
 <body>
 
 <div class="container">
-    <h2>Roulette Escalation Strategy</h2>
+    <h2>Roulette Corner/Split Strategy</h2>
     <p class="strategy">
-        American roulette (38 pockets). Always bet on 7 numbers. Start at $1/number.
-        After 5 losses at a level, raise by $1/number. A win ratchets escalation back one full level (5 spins).
-        Any new high-water bankroll resets escalation to $1 and becomes the new baseline.
+        American roulette (38 pockets). Always five equal bets: corners 14/15/17/18, 20/21/23/24,
+        13/14/16/17, 19/20/22/23, and split 17/20. Unit starts at $1 and rises $1 for every $30
+        below baseline. A new high-water bankroll becomes the baseline. Hitting 17 or 20 resets
+        the baseline to the post-spin bankroll, even if lower.
     </p>
 
     <div class="controls">
@@ -40,10 +57,6 @@
             <label for="spinsInput">Max Spins</label>
             <input type="number" id="spinsInput" value="1000000" min="100" step="1000">
         </div>
-        <div class="input-group">
-            <label for="numbersInput">Numbers Bet</label>
-            <input type="number" id="numbersInput" value="7" min="1" max="36">
-        </div>
         <button onclick="runSimulation()">Run Simulation</button>
     </div>
 
@@ -52,8 +65,9 @@
         <div id="finalSpins">Spins: 0</div>
         <div id="finalBankroll">Bankroll: $1,000.00</div>
         <div id="peakBankroll">Peak: $1,000.00</div>
-        <div id="peakBet">Peak Bet/Number: $1</div>
-        <div id="winRate">Wins: 0</div>
+        <div id="peakBet">Peak Unit: $1</div>
+        <div id="winRate">Hits: 0</div>
+        <div id="resetHits">17/20 hits: 0</div>
     </div>
 
     <canvas id="bankrollChart"></canvas>
@@ -62,57 +76,76 @@
 <script>
     let chart;
 
-    // American roulette: 1–36, 0, 00 → 38 pockets. Straight-up pays 35:1.
+    // American roulette: 1–36, 0, 00 → 38 pockets.
+    // Corner pays 8:1, split pays 17:1.
     const WHEEL_SIZE = 38;
-    const STRAIGHT_PAYOUT = 35;
+    const BET_COUNT = 5;
+    const DEFICIT_STEP = 30;
+    const CORNER_ODDS = 8;
+    const SPLIT_ODDS = 17;
+
+    const PLACEMENTS = [
+        { numbers: [14, 15, 17, 18], odds: CORNER_ODDS },
+        { numbers: [20, 21, 23, 24], odds: CORNER_ODDS },
+        { numbers: [13, 14, 16, 17], odds: CORNER_ODDS },
+        { numbers: [19, 20, 22, 23], odds: CORNER_ODDS },
+        { numbers: [17, 20], odds: SPLIT_ODDS }
+    ];
+
+    function spinWheel() {
+        const r = Math.floor(Math.random() * WHEEL_SIZE);
+        return r === 37 ? '00' : r;
+    }
+
+    function netForSpin(number, unit) {
+        let net = -BET_COUNT * unit;
+        for (const placement of PLACEMENTS) {
+            if (placement.numbers.includes(number)) {
+                net += (placement.odds + 1) * unit;
+            }
+        }
+        return net;
+    }
 
     function runSimulation() {
         const DATA_INTERVAL = 10;
-        const LEVEL_SIZE = 5; // losses per bet-level before escalating
 
         const startingBankroll = Math.max(1, parseFloat(document.getElementById('bankrollInput').value) || 1000);
         const totalSpins = parseInt(document.getElementById('spinsInput').value, 10) || 1000000;
-        const numbersBet = Math.min(36, Math.max(1, parseInt(document.getElementById('numbersInput').value, 10) || 7));
-
-        const winChance = numbersBet / WHEEL_SIZE;
-        // Straight-up 35:1: net on win = (35 + 1 - numbersBet) * betPerNumber; lose = numbersBet * betPerNumber
-        const netWinMultiplier = STRAIGHT_PAYOUT + 1 - numbersBet;
-        const lossMultiplier = numbersBet;
 
         let bankroll = startingBankroll;
         let baseline = startingBankroll;
         let peak = startingBankroll;
         let peakBet = 1;
-        let escalationIndex = 0; // 0–4 → $1, 5–9 → $2, …
         let history = [startingBankroll];
         let labels = [0];
         let spinsPlayed = 0;
-        let wins = 0;
+        let hits = 0;
+        let resetHits = 0;
 
         for (let i = 1; i <= totalSpins; i++) {
-            const betPerNumber = 1 + Math.floor(escalationIndex / LEVEL_SIZE);
-            const totalWager = betPerNumber * numbersBet;
+            const deficit = Math.max(0, baseline - bankroll);
+            const unit = 1 + Math.floor(deficit / DEFICIT_STEP);
+            const totalWager = unit * BET_COUNT;
 
-            if (betPerNumber > peakBet) peakBet = betPerNumber;
+            if (unit > peakBet) peakBet = unit;
 
             if (bankroll < totalWager) {
                 spinsPlayed = i - 1;
                 break;
             }
 
-            if (Math.random() < winChance) {
-                bankroll += netWinMultiplier * betPerNumber;
-                wins++;
-                // Ratchet escalation back one full level (5 spins)
-                escalationIndex = Math.max(0, escalationIndex - LEVEL_SIZE);
-            } else {
-                bankroll -= lossMultiplier * betPerNumber;
-                escalationIndex++;
-            }
+            const number = spinWheel();
+            const net = netForSpin(number, unit);
+            bankroll += net;
+            if (net > 0) hits++;
 
-            if (bankroll > baseline) {
+            const hitSeventeenOrTwenty = number === 17 || number === 20;
+            if (hitSeventeenOrTwenty) {
                 baseline = bankroll;
-                escalationIndex = 0;
+                resetHits++;
+            } else if (bankroll > baseline) {
+                baseline = bankroll;
             }
 
             if (bankroll > peak) peak = bankroll;
@@ -131,10 +164,10 @@
             }
         }
 
-        updateUI(labels, history, spinsPlayed, bankroll, peak, peakBet, wins);
+        updateUI(labels, history, spinsPlayed, bankroll, peak, peakBet, hits, resetHits);
     }
 
-    function updateUI(labels, data, spins, finalMoney, peak, peakBet, wins) {
+    function updateUI(labels, data, spins, finalMoney, peak, peakBet, hits, resetHits) {
         const statusEl = document.getElementById('status');
         statusEl.innerText = finalMoney <= 0 ? "Status: BUST" : "Status: FINISHED";
         statusEl.style.color = finalMoney <= 0 ? "#dc3545" : "#28a745";
@@ -144,9 +177,10 @@
             `Bankroll: $${finalMoney.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         document.getElementById('peakBankroll').innerText =
             `Peak: $${peak.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        document.getElementById('peakBet').innerText = `Peak Bet/Number: $${peakBet}`;
+        document.getElementById('peakBet').innerText = `Peak Unit: $${peakBet}`;
         document.getElementById('winRate').innerText =
-            `Wins: ${wins.toLocaleString()} (${spins ? ((wins / spins) * 100).toFixed(2) : 0}%)`;
+            `Hits: ${hits.toLocaleString()} (${spins ? ((hits / spins) * 100).toFixed(2) : 0}%)`;
+        document.getElementById('resetHits').innerText = `17/20 hits: ${resetHits.toLocaleString()}`;
 
         if (chart) chart.destroy();
 
