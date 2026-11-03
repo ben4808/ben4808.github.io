@@ -122,27 +122,23 @@
 
     .speak-btn {
       appearance: none;
-      background: transparent;
       border: 0;
       color: #dce6f8;
       width: 2.75rem;
       height: 2.75rem;
       padding: 0;
-      margin: 0.55rem 0 0;
+      margin: 0.55rem auto 0;
       cursor: pointer;
-      display: inline-flex;
+      display: none;
       align-items: center;
       justify-content: center;
+      align-self: center;
       border-radius: 999px;
       background: rgba(197, 212, 239, 0.14);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 180ms ease, color 180ms ease, background-color 180ms ease;
     }
 
     .speak-btn.visible {
-      opacity: 1;
-      pointer-events: auto;
+      display: flex;
     }
 
     .speak-btn.playing,
@@ -157,7 +153,7 @@
     }
 
     #spanish {
-      margin: 0.85rem 0 0;
+      margin: 1.15rem 0 0;
       color: var(--muted);
       font-size: clamp(1rem, 4.1vw, 1.2rem);
       line-height: 1.45;
