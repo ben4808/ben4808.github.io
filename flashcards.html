@@ -120,8 +120,44 @@
       text-wrap: pretty;
     }
 
+    .speak-btn {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      color: #dce6f8;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      margin: 0.55rem 0 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgba(197, 212, 239, 0.14);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease, color 180ms ease, background-color 180ms ease;
+    }
+
+    .speak-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .speak-btn.playing,
+    .speak-btn:hover,
+    .speak-btn:focus-visible {
+      color: var(--gold);
+    }
+
+    .speak-btn svg {
+      width: 1.7rem;
+      height: 1.7rem;
+    }
+
     #spanish {
-      margin: 1.15rem 0 0;
+      margin: 0.85rem 0 0;
       color: var(--muted);
       font-size: clamp(1rem, 4.1vw, 1.2rem);
       line-height: 1.45;
@@ -199,6 +235,11 @@
     </header>
     <main>
       <p id="english"></p>
+      <button type="button" id="speakBtn" class="speak-btn" aria-label="Repeat sentence">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+      </button>
       <p id="spanish"></p>
     </main>
     <footer id="hint">Tap to reveal</footer>
@@ -209,6 +250,7 @@
 
     const englishEl = document.getElementById('english');
     const spanishEl = document.getElementById('spanish');
+    const speakBtn = document.getElementById('speakBtn');
     const hintEl = document.getElementById('hint');
     const countEl = document.getElementById('count');
     const progressFillEl = document.getElementById('progressFill');
@@ -243,6 +285,46 @@
       progressFillEl.style.width = total === 0 ? '0%' : ((shownInCycle / total) * 100) + '%';
     }
 
+    let englishVoice = null;
+
+    function refreshEnglishVoice() {
+      if (!window.speechSynthesis) return;
+      const voices = window.speechSynthesis.getVoices();
+      englishVoice =
+        voices.find((voice) => voice.lang === 'en-US') ||
+        voices.find((voice) => voice.lang.toLowerCase().startsWith('en')) ||
+        null;
+    }
+
+    function spokenText(sentence) {
+      return sentence.replace(/\{\{([^}]+)\}\}/g, '$1');
+    }
+
+    function stopSpeech() {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      speakBtn.classList.remove('playing');
+    }
+
+    function speakEnglish() {
+      if (!current || !window.speechSynthesis) return;
+      const utterance = new SpeechSynthesisUtterance(spokenText(current.original_sentence));
+      utterance.lang = 'en-US';
+      utterance.rate = 0.95;
+      if (englishVoice) utterance.voice = englishVoice;
+      utterance.onstart = () => speakBtn.classList.add('playing');
+      utterance.onend = () => speakBtn.classList.remove('playing');
+      utterance.onerror = () => speakBtn.classList.remove('playing');
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    }
+
+    if (window.speechSynthesis) {
+      refreshEnglishVoice();
+      window.speechSynthesis.addEventListener('voiceschanged', refreshEnglishVoice);
+    }
+
     function renderEnglish(sentence, showAnswer) {
       englishEl.replaceChildren();
       let lastIndex = 0;
@@ -274,6 +356,8 @@
       renderEnglish(card.original_sentence, showAnswer);
       spanishEl.textContent = card.translated_sentence || '';
       hintEl.textContent = showAnswer ? 'Tap for next' : 'Tap to reveal';
+      speakBtn.classList.toggle('visible', showAnswer);
+      if (!showAnswer) stopSpeech();
     }
 
     function drawNext(fromReshuffle) {
@@ -305,12 +389,20 @@
       setTimeout(() => { locked = false; }, 220);
     }
 
+    speakBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (revealed) speakEnglish();
+    });
+
     document.addEventListener('pointerup', (event) => {
       if (event.button !== undefined && event.button !== 0) return;
+      if (event.target.closest('.speak-btn')) return;
       onActivate();
     });
 
     document.addEventListener('keydown', (event) => {
+      if (event.target.closest('.speak-btn')) return;
       if (event.key === ' ' || event.key === 'Enter' || event.key === 'ArrowRight') {
         event.preventDefault();
         onActivate();
